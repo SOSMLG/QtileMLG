@@ -1,0 +1,155 @@
+#!/bin/bash
+set -e
+
+# Function to print a heading
+print_section() {
+    echo -e "\n\033[1;32m==> $1\033[0m"
+}
+
+print_section "Updating package lists"
+sudo apt update
+
+print_section "Installing essential packages (no recommends)"
+sudo apt install --no-install-recommends -y \
+    qtile \
+    eza \
+    zoxide \
+    git \
+    fonts-font-awesome \
+    fonts-terminus \
+    fonts-noto-color-emoji \
+    unzip \
+    curl \
+    fzf \
+    micro \
+    shotcut \
+    python3-pip \
+    imagemagick \
+    feh \
+    picom \
+    rxvt-unicode \
+    rofi \
+    xclip \
+    xsel \
+    network-manager \
+    acpi \
+    acpid \
+    pulseaudio \
+    pavucontrol \
+    pulsemixer \
+    dunst \
+    flameshot \
+    redshift \
+    firefox-esr \
+    vlc \
+    libnotify-bin \
+    lightdm \
+    kitty \
+    linux-image-amd64 \
+    linux-headers-amd64 \
+    firmware-iwlwifi \
+    firmware-misc-nonfree
+
+print_section "Installing pywal via pipx"
+
+if ! command -v pipx &> /dev/null; then
+    echo "pipx not found, installing..."
+    sudo apt install -y pipx
+    pipx ensurepath
+fi
+
+if pipx list | grep -q pywal; then
+    pipx upgrade pywal
+else
+    pipx install pywal
+fi
+
+print_section "Removing nano and cleaning up"
+sudo apt purge -y nano
+sudo apt autoremove -y
+
+print_section "Installing FiraCode Nerd Font"
+FONT_DIR="$HOME/.local/share/fonts"
+mkdir -p "$FONT_DIR"
+cd "$FONT_DIR"
+curl -LO https://github.com/ryanoasis/nerd-fonts/releases/latest/download/FiraCode.zip
+unzip -q FiraCode.zip
+rm FiraCode.zip
+fc-cache -fv > /dev/null
+
+print_section "Setting up Micro as IDE"
+mkdir -p ~/.config/micro
+cat > ~/.config/micro/settings.json <<EOF
+{
+  "autosave": true,
+  "colorscheme": "simple",
+  "filetree": true,
+  "softwrap": true,
+  "ruler": true,
+  "statusline": true,
+  "tabsize": 4,
+  "syntax": true,
+  "linenumbers": "relative",
+  "clipboard": "external",
+  "pluginchannels": ["default"]
+}
+EOF
+
+cat > ~/.config/micro/bindings.json <<EOF
+{
+  "Ctrl-o": "command:save",
+  "Ctrl-x": "command:quit",
+  "Ctrl-w": "command:find",
+  "Ctrl-\\\\": "command:replace",
+  "Ctrl-k": "command:cut",
+  "Ctrl-u": "command:paste",
+  "Ctrl-g": "command:help",
+  "Ctrl-c": "command:cursorpos",
+  "Ctrl-t": "command:togglecomment"
+}
+EOF
+
+
+print_section "Installing Oh My Bash"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/ohmybash/oh-my-bash/master/tools/install.sh)"
+
+
+print_section "Setup Complete"
+
+echo -e "\nTip: Use 'wal -i /path/to/image' to generate colorscheme from wallpaper."
+echo "You can add 'wal -R' in your Qtile or shell startup script to reload last theme."
+
+print_section "Enabling and starting essential services"
+sudo systemctl enable NetworkManager
+sudo systemctl enable acpid
+sudo systemctl enable lightdm
+
+sudo systemctl start NetworkManager
+sudo systemctl start acpid
+sudo systemctl start lightdm
+
+print_section "Creating basic Qtile autostart script"
+mkdir -p ~/.config/qtile
+
+cat > ~/.config/qtile/autostart.sh <<EOF
+#!/bin/bash
+# Start picom compositor
+picom --config \$HOME/.config/picom/picom.conf &
+
+# Set wallpaper with feh
+feh --bg-scale ~/wallpaper.jpg &
+
+# Start redshift for screen color temp
+redshift &
+
+# Start dunst notification daemon
+dunst &
+
+# Pulseaudio volume control (optional)
+pavucontrol &
+
+EOF
+chmod +x ~/.config/qtile/autostart.sh
+
+echo -e "\nAdd the following line to your Qtile config (config.py) to run autostart on startup:"
+echo "  subprocess.Popen(['~/.config/qtile/autostart.sh'])"
