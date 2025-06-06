@@ -99,7 +99,7 @@ cat > ~/.config/micro/bindings.json <<EOF
 {
   "Ctrl-o": "command:save",
   "Ctrl-x": "command:quit",
-  "Ctrl-w": "command:find",
+  "Ctrl-w": "command:search",
   "Ctrl-\\\\": "command:replace",
   "Ctrl-k": "command:cut",
   "Ctrl-u": "command:paste",
