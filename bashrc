@@ -162,3 +162,8 @@ alias la="eza -la --icons"       # Show hidden files
 alias lt="eza -T --icons"        # Tree view
 alias lsd="eza -d --icons */"    # Show directories only
 
+# Source Pywal colors if present
+if [ -f "$HOME/.cache/wal/colors.sh" ]; then
+  source "$HOME/.cache/wal/colors.sh"
+fi
+
