@@ -44,7 +44,7 @@ sudo apt install --no-install-recommends -y \
     vlc \
     libnotify-bin \
     lightdm \
-    kitty \
+    alacritty \
     linux-image-amd64 \
     linux-headers-amd64 \
     firmware-iwlwifi \
