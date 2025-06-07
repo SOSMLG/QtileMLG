@@ -1,9 +1,7 @@
 #!/bin/bash
 set -e
 
-# Enhanced Qtile setup script: installs essentials and adds goodies for simplicity & UX
-
-# Function to print a colored heading
+# Function to print a heading
 print_section() {
     echo -e "\n\033[1;32m==> $1\033[0m"
 }
@@ -11,7 +9,7 @@ print_section() {
 print_section "Updating package lists"
 sudo apt update
 
-print_section "Installing core packages (no recommends)"
+print_section "Installing essential packages (no recommends)"
 sudo apt install --no-install-recommends -y \
     qtile \
     eza \
@@ -34,7 +32,6 @@ sudo apt install --no-install-recommends -y \
     xclip \
     xsel \
     network-manager \
-    network-manager-gnome \
     acpi \
     acpid \
     pulseaudio \
@@ -48,22 +45,26 @@ sudo apt install --no-install-recommends -y \
     libnotify-bin \
     lightdm \
     alacritty \
-    autorandr \
-    brightnessctl \
-    firmware-iwlwifi
+    linux-image-amd64 \
+    linux-headers-amd64 \
+    firmware-iwlwifi \
+    firmware-misc-nonfree
 
-print_section "Installing pipx and pywal"
+print_section "Installing pywal via pipx"
+
 if ! command -v pipx &> /dev/null; then
+    echo "pipx not found, installing..."
     sudo apt install -y pipx
     pipx ensurepath
 fi
+
 if pipx list | grep -q pywal; then
     pipx upgrade pywal
 else
     pipx install pywal
 fi
 
-print_section "Removing unwanted packages & cleanup"
+print_section "Removing nano and cleaning up"
 sudo apt purge -y nano
 sudo apt autoremove -y
 
@@ -72,12 +73,13 @@ FONT_DIR="$HOME/.local/share/fonts"
 mkdir -p "$FONT_DIR"
 cd "$FONT_DIR"
 curl -LO https://github.com/ryanoasis/nerd-fonts/releases/latest/download/FiraCode.zip
-unzip -q FiraCode.zip && rm FiraCode.zip
+unzip -q FiraCode.zip
+rm FiraCode.zip
 fc-cache -fv > /dev/null
 
-print_section "Setting up Micro editor as IDE"
+print_section "Setting up Micro as IDE"
 mkdir -p ~/.config/micro
-cat > ~/.config/micro/settings.json <<-'EOF'
+cat > ~/.config/micro/settings.json <<EOF
 {
   "autosave": true,
   "colorscheme": "simple",
@@ -93,12 +95,12 @@ cat > ~/.config/micro/settings.json <<-'EOF'
 }
 EOF
 
-cat > ~/.config/micro/bindings.json <<-'EOF'
+cat > ~/.config/micro/bindings.json <<EOF
 {
   "Ctrl-o": "command:save",
   "Ctrl-x": "command:quit",
   "Ctrl-w": "command:search",
-  "Ctrl-\\": "command:replace",
+  "Ctrl-\\\\": "command:replace",
   "Ctrl-k": "command:cut",
   "Ctrl-u": "command:paste",
   "Ctrl-g": "command:help",
@@ -107,214 +109,48 @@ cat > ~/.config/micro/bindings.json <<-'EOF'
 }
 EOF
 
-print_section "Installing Oh My Bash for shell enhancements"
+
+print_section "Installing Oh My Bash"
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/ohmybash/oh-my-bash/master/tools/install.sh)"
 
-print_section "Enabling & starting essential services"
-sudo systemctl enable NetworkManager acpid lightdm
-sudo systemctl start NetworkManager acpid
 
-print_section "Cloning and generating basic Qtile config"
-QTILE_CONF="~/\.config/qtile"
-if [ ! -d "$QTILE_CONF" ]; then
-    mkdir -p "$QTILE_CONF"
-    cat > "$QTILE_CONF/config.py" <<-'EOF'
-import os
-from libqtile import layout, bar, widget, hook
-from libqtile.config import Key, Group, Click, Drag, Match, Screen
-from libqtile.command import lazy
+print_section "Setup Complete"
 
-mod = "mod4"
-keys = [
-    Key([mod], "h", lazy.layout.left(), desc="Move focus left"),
-    Key([mod], "l", lazy.layout.right(), desc="Move focus right"),
-    Key([mod], "j", lazy.layout.down(), desc="Move focus down"),
-    Key([mod], "k", lazy.layout.up(), desc="Move focus up"),
-    Key([mod, "shift"], "Return", lazy.spawn("alacritty"), desc="Launch terminal"),
-    Key([mod], "r", lazy.spawn("dmenu_run -i -p 'Run:'"), desc="Run application"),
-    Key([], "XF86AudioRaiseVolume", lazy.spawn("pulsemixer --change-volume +5")),
-    Key([], "XF86AudioLowerVolume", lazy.spawn("pulsemixer --change-volume -5")),
-    Key([], "XF86MonBrightnessUp", lazy.spawn("brightnessctl set +10%")),
-    Key([], "XF86MonBrightnessDown", lazy.spawn("brightnessctl set 10%-")),
-]
+echo -e "\nTip: Use 'wal -i /path/to/image' to generate colorscheme from wallpaper."
+echo "You can add 'wal -R' in your Qtile or shell startup script to reload last theme."
 
-groups = [Group(i) for i in "123456789"]
-for i in groups:
-    keys.extend([
-        Key([mod], i.name, lazy.group[i.name].toscreen()),
-        Key([mod, "shift"], i.name, lazy.window.togroup(i.name)),
-    ])
+print_section "Enabling and starting essential services"
+sudo systemctl enable NetworkManager
+sudo systemctl enable acpid
+sudo systemctl enable lightdm
 
-layouts = [layout.Max(), layout.Stack(num_stacks=2)]
+sudo systemctl start NetworkManager
+sudo systemctl start acpid
+sudo systemctl start lightdm
 
-widget_defaults = dict(font="FiraCode Nerd Font", fontsize=12, padding=3)
-screens = [
-    Screen(
-        top=bar.Bar(
-            [
-                # Layout indicator
-                widget.Spacer(length=8),
-                widget.CurrentLayoutIcon(
-                    custom_icon_paths=[os.path.expanduser("~/.config/qtile/icons/layouts")],
-                    foreground=colors[6][0],
-                    scale=0.6,
-                    padding=4
-                ),
-                create_separator(),
-                
-                # Left modules - System info
-                widget.TextBox(
-                    text="󰍛",
-                    foreground=colors[6][0],
-                    padding=4
-                ),
-                widget.Memory(
-                    format='{MemPercent:2.0f}%',
-                    foreground=foregroundColor,
-                    padding=2
-                ),
-                create_separator(),
-                widget.TextBox(
-                    text="󰻠",
-                    foreground=colors[6][0],
-                    padding=4
-                ),
-                widget.CPU(
-                    format="{load_percent:2.0f}%",
-                    foreground=foregroundColor,
-                    padding=2
-                ),
-                create_separator(),
-                widget.TextBox(
-                    text="󰋊",
-                    foreground=colors[6][0],
-                    padding=4
-                ),
-                widget.DF(
-                    visible_on_warn=False,
-                    format='{r:.0f}%',
-                    partition='/',
-                    foreground=foregroundColor,
-                    padding=2
-                ),
-                
-                # Center - Workspaces
-                widget.Spacer(),
-                widget.GroupBox(
-                    disable_drag=True,
-                    use_mouse_wheel=False,
-                    active=foregroundColor,
-                    inactive=foregroundColorTwo,
-                    highlight_method='line',
-                    highlight_color=[backgroundColor, backgroundColor],
-                    this_current_screen_border=colors[6][0],
-                    this_screen_border=colors[1][0],
-                    other_current_screen_border=colors[1][0],
-                    other_screen_border=backgroundColor,
-                    urgent_alert_method='text',
-                    urgent_text=colors[10][0],
-                    rounded=False,
-                    margin_x=0,
-                    margin_y=2,
-                    padding_x=8,
-                    padding_y=4,
-                    borderwidth=3,
-                    hide_unused=True,
-                ),
-                widget.Spacer(),
-                
-                # Right modules
-                widget.GenPollText(
-                    func=lambda: " CAPS " if "Caps Lock:   on" in subprocess.run(['xset', 'q'], capture_output=True, text=True).stdout else "",
-                    update_interval=0.5,
-                    padding=4,
-                    foreground=colors[10][0],
-                ),
-                widget.Systray(
-                    padding=4,
-                ),
-                create_separator(),
-                widget.TextBox(
-                    text="󰕾",
-                    foreground=colors[6][0],
-                    padding=4,
-                    mouse_callbacks={'Button1': lazy.spawn("pavucontrol")},
-                ),
-                widget.Volume(
-                    fmt="{}",
-                    mute_command="pamixer -t",
-                    volume_up_command="pamixer -i 2",
-                    volume_down_command="pamixer -d 2",
-                    get_volume_command="pamixer --get-volume-human",
-                    check_mute_command="pamixer --get-mute",
-                    check_mute_string="true",
-                    foreground=foregroundColor,
-                    padding=2
-                ),
-                create_separator(),
-                widget.Clock(
-                    format='%a, %b %-d',
-                    foreground=foregroundColorTwo,
-                    padding=4
-                ),
-                create_separator(),
-                widget.Clock(
-                    format='%-l:%M %p',
-                    foreground=foregroundColor,
-                    padding=4
-                ),
-                widget.Spacer(length=8),
-            ],
-            24,  # Match Polybar's 24pt height
-            background=backgroundColor,
-            margin=[0, 0, 0, 0],  # Remove margins for full-width bar
-            # border_width=[0, 0, 0, 0],  # No borders to match Polybar
-        ),
-    ),
-]
+print_section "Creating basic Qtile autostart script"
+mkdir -p ~/.config/qtile
 
-@hook.subscribe.startup_once
-def autostart():
-    home = os.path.expanduser('~')
-    subprocess.Popen([home + '/.config/qtile/autostart.sh'])
-EOF
-fi
-
-print_section "Creating autostart.sh with extras"
-cat > ~/.config/qtile/autostart.sh <<-'EOF'
+cat > ~/.config/qtile/autostart.sh <<EOF
 #!/bin/bash
-# Compositor
-picom --config $HOME/.config/picom/picom.conf &
-# Wallpaper + randomization
-wal -R &
-feh --randomize --bg-scale $HOME/wallpapers/* &
-# Display color temp
+# Start picom compositor
+picom --config \$HOME/.config/picom/picom.conf &
+
+# Set wallpaper with feh
+feh --bg-scale ~/wallpaper.jpg &
+
+# Start redshift for screen color temp
 redshift &
-# Notification daemon
+
+# Start dunst notification daemon
 dunst &
-# Network tray
-nm-applet --indicator &
-# Bluetooth tray (if used)
-blueman-applet &
-# Audio control
-volumeicon &
-# Autorandr for profiles
-autorandr --change &
+
+# Pulseaudio volume control (optional)
+pavucontrol &
+
 EOF
 chmod +x ~/.config/qtile/autostart.sh
 
-print_section "Picom configuration sample"
-mkdir -p ~/.config/picom
-cat > ~/.config/picom/picom.conf <<-'EOF'
-# Enable shadows, fading, and transparency
-shadow = true;
-fading = true;
-inactive-opacity = 0.9;
-active-opacity = 1.0;
-# VSync
-vsync = true;
-EOF
-
-print_section "Final Tip"
-echo -e "\nSetup complete! Restart or logout and select Qtile session."
-echo "Enjoy your streamlined Qtile environment!"
+echo -e "\nAdd the following line to your Qtile config (config.py) to run autostart on startup:"
+echo "  subprocess.Popen(['~/.config/qtile/autostart.sh'])"
+let start this add important stuff and goodies that can make experience better and maitining simplicty 
